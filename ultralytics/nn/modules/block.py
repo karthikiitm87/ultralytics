@@ -52,6 +52,7 @@ __all__ = (
     "PSA",
     "SCDown",
     "TorchVision",
+    "HfaceSwin"
 )
 
 
@@ -2031,3 +2032,58 @@ class SAVPE(nn.Module):
         aggregated = score.transpose(-2, -3) @ x.reshape(B, self.c, C // self.c, -1).transpose(-1, -2)
 
         return F.normalize(aggregated.transpose(-2, -3).reshape(B, Q, -1), dim=-1, p=2)
+
+
+class HFaceSwin(nn.Module):
+    """
+    HuggingFace Swin Transformer model wrapper.
+
+    This class provides a way to load a model hugging face library.
+
+    Attributes:
+        m (nn.Module): The loaded HFace model, possibly truncated and unwrapped.
+
+    Args:
+        model (str): Name of the Swin model to load.
+        weights (str, optional): Pre-trained weights to load. Default is "DEFAULT".
+    """
+
+    def __init__(self, model: str):
+        """
+        Load the model and weights from transformers.
+
+        Args:
+            model (str): Name of the Hugging face model to load.
+        """
+        from transformers import SwinModel 
+
+        super().__init__()
+        self.m = SwinModel.from_pretrained(model)
+        self.m.head = self.m.heads = nn.Identity()
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        Forward pass through the model.
+
+        Args:
+            x (torch.Tensor): Input tensor.
+
+        Returns:
+            (torch.Tensor | List[torch.Tensor]): Output tensor or list of tensors.
+        """
+        y = [x]
+        import math
+
+        output = self.m(x, output_hidden_states=True)
+        for out in output.reshaped_hidden_states:
+            y.append(out.permute(0, 2, 3, 1))
+        B = y[-1].shape[0]
+        #B = output.last_hidden_state.shape[0]
+        #H, W = int(math.sqrt(output.last_hidden_state.shape[1])), int(math.sqrt(output.last_hidden_state.shape[1]))
+        H, W = y[-1].shape[1], y[-1].shape[2]
+        #C = output.last_hidden_state.shape[2]
+        C = y[-1].shape[3]
+        y.append(output.last_hidden_state.reshape(B, H, W, C).contiguous())
+        
+        #print(f"Output shape: {y.shape if isinstance(y, torch.Tensor) else [o.shape for o in y]}")    
+        return y
