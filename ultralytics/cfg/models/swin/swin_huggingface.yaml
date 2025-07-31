@@ -6,7 +6,7 @@ keywords: [transformer, swin]
 description: Swin-Hugging face pretrained backbone with Detect head. Modified from https://github.com/Y-T-G/community
 
 # Model
-nc: 4
+nc: 3
 strides: [8, 16, 32]
 backbone:
   # [from, repeats, module, args]
@@ -19,3 +19,5 @@ backbone:
   - [-1, 1, torchvision.ops.Permute, [[0, 3, 1, 2]]]  # (1, 768, 20, 20) - 6
 head:
   - [[2, 4, 6], 1, Detect, [nc]]
+
+  
